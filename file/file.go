@@ -33,12 +33,13 @@ func GetFeeder(path string) *file {
 
 	go func() {
 		for {
+		first:
 			switch result.scanner.Scan() {
 			case true:
 				result.line <- result.scanner.Text()
 			case false:
 				result.openFile()
-				result.line <- result.scanner.Text()
+				goto first
 			}
 		}
 	}()
