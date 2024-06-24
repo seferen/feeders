@@ -30,8 +30,10 @@ func (f *file) openFile() {
 	f.sourceFile, err = os.Open(f.sourcePath)
 
 	if err != nil {
-		f.Log.Error("Open file", zap.String("file name", f.sourcePath))
+		f.Log.Fatal("Open file", zap.String("file name", f.sourcePath), zap.String("error", err.Error()))
 	}
+
+	f.Log.Info("open file", zap.String("file name", f.sourceFile.Name()))
 
 	f.scanner = bufio.NewScanner(f.sourceFile)
 }
@@ -39,8 +41,11 @@ func (f *file) openFile() {
 func (f *file) Feed() string {
 
 	if f.scanner.Scan() {
+		text := f.scanner.Text()
 
-		return f.scanner.Text()
+		f.Log.Debug("Read string", zap.String("string line", text))
+
+		return text
 	}
 
 	f.openFile()
