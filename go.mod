@@ -1,4 +1,4 @@
-module golangtest
+module github.com/seferen/feeders
 
 go 1.22.4
 
