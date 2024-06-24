@@ -7,11 +7,14 @@ import (
 	"go.uber.org/zap"
 )
 
+var files map[string]chan string = make(map[string]chan string)
+
 type file struct {
 	Log        *zap.Logger
 	sourceFile *os.File
 	sourcePath string
 	scanner    *bufio.Scanner
+	line       chan string
 }
 
 func GetFeeder(path string) *file {
@@ -19,12 +22,32 @@ func GetFeeder(path string) *file {
 
 	result := &file{Log: log, sourcePath: path}
 
+	if quee, ok := files[result.sourcePath]; ok {
+		result.line = quee
+	} else {
+		result.line = make(chan string)
+		files[result.sourcePath] = result.line
+	}
+
 	result.openFile()
+
+	go func() {
+		for {
+			switch result.scanner.Scan() {
+			case true:
+				result.line <- result.scanner.Text()
+			case false:
+				result.openFile()
+				result.line <- result.scanner.Text()
+			}
+		}
+	}()
 
 	return result
 }
 
 func (f *file) openFile() {
+
 	var err error
 
 	f.sourceFile, err = os.Open(f.sourcePath)
@@ -33,28 +56,20 @@ func (f *file) openFile() {
 		f.Log.Fatal("Open file", zap.String("file name", f.sourcePath), zap.String("error", err.Error()))
 	}
 
-	f.Log.Info("open file", zap.String("file name", f.sourceFile.Name()))
+	f.Log.Debug("open file", zap.String("file name", f.sourceFile.Name()))
 
 	f.scanner = bufio.NewScanner(f.sourceFile)
 }
 
 func (f *file) Feed() string {
 
-	if f.scanner.Scan() {
-		text := f.scanner.Text()
-
-		f.Log.Debug("Read string", zap.String("string line", text))
-
-		return text
-	}
-
-	f.openFile()
-
-	return f.Feed()
+	return <-f.line
 
 }
 
 func (f *file) Close() {
+	f.Log.Debug("call function close")
 	f.sourceFile.Close()
+	close(f.line)
 
 }
